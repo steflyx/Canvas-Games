@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Canvas Workshop</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+    	canvas { background: #eee; display: block; margin: 0 auto;}
+    	html, body {margin: 0; height: 100%; overflow: hidden;}
+    </style>
+</head>
+<body>
+<canvas id="myCanvas" width="500" height="500"></canvas>
+<script>
+
+	
+
+	
+
+	var canvas = document.getElementById("myCanvas");
+	var ctx = canvas.getContext("2d");
+
+	canvas.width = document.body.clientWidth;
+	canvas.height = document.body.clientHeight;
+
+	//Constants
+	var CTX_WIDTH = canvas.width;
+	var CTX_HEIGHT = canvas.height;
+	var STARTING_Y = CTX_HEIGHT - 120;
+	var FINAL_Y = 120;
+	var NUM_TURTLE = 5;
+	var DIST_TURTLE;
+	var OFFEST_LINE = 80;
+	var MAX_TURTLE = 12;
+
+	var PAUSE_X = CTX_WIDTH - 120;
+	var PAUSE_Y = FINAL_Y/2;
+	var PAUSE_SIZE = 20;
+	var PAUSE_WIDTH = 5;
+	var PAUSE_DIST = 10;
+
+	//Info about turtles
+	var turtle_pos = [];
+	var turtle_speeds = [];
+	var turtle_colors = ["blue","green","grey","yellow","pink","violet","red","olive","black","lightblue"];
+	var turtle_scores = [];
+
+	//Info about game state
+	var gameOn = false;
+	var onPause = false;
+	var chosenTurtle = 0;
+
+	//Add spacebar listener to stop game
+	document.addEventListener("keydown", keyDownHandler, false);
+
+	function keyDownHandler(e) {
+	    if(e.key == " "){
+	    	if(!gameOn)
+	    		startGame();
+	    	else
+	    		if(onPause)
+	    			onPause = false;
+	    		else
+	    			stopGame();
+	    }
+	    else if(e.keyCode == 38){
+	    	if(!gameOn && NUM_TURTLE < MAX_TURTLE){
+	    		NUM_TURTLE += 1;
+	    		prepareGame();
+	    	}
+	    	if(gameOn)
+	    		chosenTurtle = (chosenTurtle + 1) % NUM_TURTLE;
+	    	
+	    }
+	    else if(e.keyCode == 40){
+	    	if(!gameOn && NUM_TURTLE > 2){
+	    		NUM_TURTLE -= 1;
+	    		prepareGame();
+	    	}
+	    	if(gameOn){
+	    		chosenTurtle = (chosenTurtle - 1) % NUM_TURTLE;
+	    		if (chosenTurtle < 0)
+	    			chosenTurtle = NUM_TURTLE - 1;
+	    	}
+	    }
+	}
+
+	window.addEventListener('click', function (e) {
+  		x_click = event.x;
+  		y_click = event.y;
+  		if(!gameOn)
+  			startGame();
+  		else{
+  			if(x_click > PAUSE_X-10 && x_click < PAUSE_X + PAUSE_WIDTH + PAUSE_DIST && y_click > PAUSE_Y && y_click < PAUSE_Y + PAUSE_SIZE)
+  				onPause = true;
+  		}
+	});
+
+	//Resize when window changes size
+	window.addEventListener('resize', function () {
+  		CTX_WIDTH = window.innerWidth;
+  		CTX_HEIGTH = window.innerHeight;
+  		STARTING_Y = CTX_HEIGHT - 120;
+  		DIST_TURTLE = CTX_WIDTH/(NUM_TURTLE + 1);
+  		PAUSE_X = CTX_WIDTH - 120;
+
+  		for(i=0; i<NUM_TURTLE; i++)
+			turtle_pos[i] = [(i + 1) * DIST_TURTLE, turtle_pos[i][1]];
+	});
+
+	//Draws a turtle in position x,y (x is the center width and y is the upper limit)
+	function drawTurtle(x,y,color){
+
+		//Parameters for the TURTLE SHAPE
+		var TURTLE_WIDTH  = 50;
+		var TURTLE_LENGTH = 50;
+		var HEAD_WIDTH    = 12;
+		var HEAD_LENGTH   = 12;
+		var HEAD_OFFSET   = 10;
+		var PAW_ANGLE     = Math.PI/4 ;
+		var PAW_LENGTH    = 3 + TURTLE_LENGTH / (2 * Math.cos(PAW_ANGLE));
+		var PAW_WIDTH     = 10;
+		var TAIL_WIDTH    = 14;
+		var TAIL_LENGTH   = 14;
+		var TAIL_OFFSET   = 10;
+		var BORDER_WIDTH  = 2;
+
+		//Set the initial position for the drawing
+		var INITIAL_X = x - TURTLE_WIDTH/2;
+		var INITIAL_Y = y;
+
+
+		//HEAD
+		ctx.beginPath();
+
+		ctx.arc(INITIAL_X + TURTLE_WIDTH/2, INITIAL_Y - HEAD_LENGTH, HEAD_WIDTH/2, -90,90);
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 - HEAD_WIDTH/2, INITIAL_Y + HEAD_OFFSET);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - HEAD_WIDTH/2, INITIAL_Y - HEAD_LENGTH);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + HEAD_WIDTH/2, INITIAL_Y - HEAD_LENGTH);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + HEAD_WIDTH/2, INITIAL_Y + HEAD_OFFSET);
+
+		ctx.lineWidth = BORDER_WIDTH;
+		ctx.strokeStyle = '#666666';
+		ctx.stroke();
+
+		ctx.fillStyle = color;
+		ctx.fill();
+
+		ctx.closePath();
+
+
+		//PAWS
+		ctx.beginPath();
+
+		//UPPER LEFT
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - (PAW_LENGTH + PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - (PAW_LENGTH - PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - (PAW_LENGTH - PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - (PAW_LENGTH + PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+
+		//UPPER RIGHT
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + (PAW_LENGTH + PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - (PAW_LENGTH - PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + (PAW_LENGTH - PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - (PAW_LENGTH + PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+
+		//LOWER LEFT
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - (PAW_LENGTH + PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + (PAW_LENGTH - PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - (PAW_LENGTH - PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + (PAW_LENGTH + PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+
+		//LOWER RIGHT
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + (PAW_LENGTH + PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + (PAW_LENGTH - PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + (PAW_LENGTH - PAW_WIDTH/2) * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + (PAW_LENGTH + PAW_WIDTH/2) * Math.sin(PAW_ANGLE));
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 - PAW_WIDTH/2 * Math.cos(PAW_ANGLE), INITIAL_Y + TURTLE_LENGTH/2 + PAW_WIDTH/2 * Math.cos(PAW_ANGLE));
+
+		ctx.lineWidth = BORDER_WIDTH;
+		ctx.strokeStyle = '#666666';
+		ctx.stroke();
+
+		ctx.fillStyle = color;
+		ctx.fill();
+
+		ctx.closePath();
+
+		//TAIL
+		ctx.beginPath();
+
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2 - TAIL_WIDTH/2, INITIAL_Y + TURTLE_LENGTH - TAIL_OFFSET);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2               , INITIAL_Y + TURTLE_LENGTH + TAIL_LENGTH);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2 + TAIL_WIDTH/2, INITIAL_Y + TURTLE_LENGTH - TAIL_OFFSET);
+
+		ctx.lineWidth = BORDER_WIDTH;
+		ctx.strokeStyle = '#666666';
+		ctx.stroke();
+
+		ctx.fillStyle = color;
+		ctx.fill();
+
+		ctx.closePath();
+
+
+		//MAIN BODY
+		ctx.beginPath();
+		ctx.arc(INITIAL_X + TURTLE_WIDTH/2, INITIAL_Y + TURTLE_LENGTH/2, TURTLE_LENGTH/2, 0, 2 * Math.PI);
+
+		ctx.lineWidth = BORDER_WIDTH;
+		ctx.strokeStyle = '#666666';
+		ctx.stroke();
+
+		ctx.fillStyle = color;
+		ctx.fill();
+
+		ctx.closePath();
+
+		//LINE FROM TURTLE TO STARTING LINE
+		ctx.beginPath();
+		ctx.moveTo(INITIAL_X + TURTLE_WIDTH/2, INITIAL_Y + TURTLE_LENGTH);
+		ctx.lineTo(INITIAL_X + TURTLE_WIDTH/2, STARTING_Y)
+
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = color;
+		ctx.stroke();
+
+		ctx.closePath();
+	}
+
+	//Draws the start line
+	function drawStartLine(){
+		ctx.beginPath();
+		
+		ctx.moveTo(OFFEST_LINE, STARTING_Y);
+		ctx.lineTo(CTX_WIDTH - OFFEST_LINE, STARTING_Y);
+		ctx.strokeStyle = "black";
+		ctx.stroke();
+
+		ctx.closePath();
+	}
+
+	//Draws the finish line
+	function drawFinishLine(){
+		ctx.beginPath();
+		
+		ctx.moveTo(OFFEST_LINE, FINAL_Y);
+		ctx.lineTo(CTX_WIDTH - OFFEST_LINE, FINAL_Y);
+		ctx.stroke();
+
+		ctx.font = "30px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("FINISH", CTX_WIDTH/2, FINAL_Y - 10);
+
+		ctx.closePath();
+	}
+
+	//Draws pause button
+	function drawPauseButton(){
+
+		ctx.beginPath();
+		
+		ctx.moveTo(PAUSE_X, PAUSE_Y);
+		ctx.lineTo(PAUSE_X, PAUSE_Y + PAUSE_SIZE);
+		ctx.lineWidth = 5;
+		ctx.strokeStyle = "black";
+		ctx.stroke();
+
+		ctx.moveTo(PAUSE_X + PAUSE_DIST, PAUSE_Y);
+		ctx.lineTo(PAUSE_X + PAUSE_DIST, PAUSE_Y + PAUSE_SIZE);
+		ctx.lineWidth = 5;
+		ctx.strokeStyle = "black";
+		ctx.stroke();
+
+		ctx.closePath();
+
+	}
+
+
+	//Checks whether one of the turtles reached the finish line
+	function checkEnd(){
+
+		for(i=0;i<NUM_TURTLE;i++){
+			if(turtle_pos[i][1] < FINAL_Y){
+				turtle_scores[i] += 1;
+				return true;
+			}
+		}
+
+		return false;
+		
+	}
+
+	//Moves all turtles to start line and gives them a new speed
+	function resetGame(){
+
+		for(i=0; i<NUM_TURTLE; i++){
+			turtle_pos[i] = [(i + 1) * DIST_TURTLE, STARTING_Y];
+			turtle_speeds[i] = Math.random();
+		}
+
+	}
+
+	//Stops the game and reveals the winner
+	function stopGame(){
+
+		gameOn = false;
+
+		showResults();
+	}
+
+	//Shows the results of the race
+	function showResults(){
+
+		var winner = 0;
+		var second = 0;
+		var third = 0;
+		var max_score = 0;
+		for(i=0; i<NUM_TURTLE; i++){
+			if(turtle_scores[i] > max_score){
+				winner = i;
+				max_score = turtle_scores[i];
+			}
+		}
+		max_score = 0;
+		for(i=0; i<NUM_TURTLE; i++){
+			if(turtle_scores[i] > max_score && i != winner){
+				second = i;
+				max_score = turtle_scores[i];
+			}
+		}
+		max_score = 0;
+		for(i=0; i<NUM_TURTLE; i++){
+			if(turtle_scores[i] > max_score && i != winner && i != second){
+				third = i;
+				max_score = turtle_scores[i];
+			}
+		}
+
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		drawStartLine();
+		drawFinishLine();
+
+		ctx.beginPath();
+
+		ctx.font = "50px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("RESULTS", CTX_WIDTH/2, CTX_HEIGHT/3);
+
+		ctx.font = "20px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("WINNER: " + turtle_colors[winner] + ", " + turtle_scores[winner] + " points", CTX_WIDTH/2, CTX_HEIGHT/3 + 60);
+
+		ctx.font = "20px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("2nd place: " + turtle_colors[second] + ", " + turtle_scores[second] + " points", CTX_WIDTH/2, CTX_HEIGHT/3 + 120);
+
+		if (NUM_TURTLE > 2){
+			ctx.font = "20px Comic Sans MS";
+			ctx.textAlign = "center";
+			ctx.fillStyle = "black";
+			ctx.fillText("3rd place: " + turtle_colors[third] + ", " + turtle_scores[third] + " points", CTX_WIDTH/2, CTX_HEIGHT/3 + 180);
+		}
+
+		ctx.font = "20px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		if(NUM_TURTLE > 2)
+			ctx.fillText("Press spacebar to continue", CTX_WIDTH/2, CTX_HEIGHT/3 + 240);
+		else
+			ctx.fillText("Press spacebar to continue", CTX_WIDTH/2, CTX_HEIGHT/3 + 180);
+
+		if(!gameOn && winner == chosenTurtle){
+
+			ctx.font = "70px Comic Sans MS";
+			ctx.textAlign = "center";
+			ctx.fillStyle = "black";
+			ctx.fillText("YOU WON!", CTX_WIDTH/2, CTX_HEIGHT/3 + 330);
+
+		}
+		if(!gameOn && winner != chosenTurtle){
+
+			ctx.font = "70px Comic Sans MS";
+			ctx.textAlign = "center";
+			ctx.fillStyle = "black";
+			ctx.fillText("You lost :(", CTX_WIDTH/2, CTX_HEIGHT/3 + 330);
+
+		}
+
+		ctx.closePath();
+	}
+
+	function drawYourTurtle(){
+
+		ctx.beginPath();
+
+		ctx.font = "20px Comic Sans MS";
+		ctx.textAlign = "left";
+		ctx.fillStyle = "black";
+		
+		ctx.fillText("Choose your turtle: ", OFFEST_LINE, 40);
+		ctx.fillStyle = turtle_colors[chosenTurtle];
+		ctx.fillText(turtle_colors[chosenTurtle], OFFEST_LINE + 185, 40);
+		ctx.font = "15px Comic Sans MS";
+		ctx.fillStyle = "black";
+		ctx.fillText('(use arrows to select)', OFFEST_LINE, 65);
+
+		ctx.closePath();		
+
+	}
+
+	function draw(){
+
+		if(gameOn){
+			if(!onPause){
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				drawStartLine();
+				drawFinishLine();
+				drawPauseButton();
+				drawYourTurtle();
+
+				for(i=0;i<NUM_TURTLE;i++){
+					turtle_pos[i][1] -= turtle_speeds[i];
+					drawTurtle(turtle_pos[i][0], turtle_pos[i][1], turtle_colors[i]);
+				}
+
+				if(checkEnd())
+					resetGame();
+			}
+			else{
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				drawStartLine();
+				drawFinishLine();
+				showResults();
+			}
+
+			requestAnimationFrame(draw);
+
+		}
+	}
+
+	//Function to start the game
+	function startGame(){
+
+		DIST_TURTLE = CTX_WIDTH/(NUM_TURTLE + 1);
+		turtle_scores.length = NUM_TURTLE; 
+		turtle_scores.fill(0);
+
+		resetGame();
+
+		gameOn = true;
+
+		draw();
+
+	}
+
+	//Sets the game before it begins, just to avoid having an empty screen
+	function prepareGame(){
+
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		drawStartLine();
+		drawFinishLine();
+
+		ctx.beginPath();
+
+		ctx.font = "50px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("PRESS SPACEBAR TO BEGIN", CTX_WIDTH/2, CTX_HEIGHT/2);
+
+		ctx.font = "20px Comic Sans MS";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "black";
+		ctx.fillText("NUMBER OF TURTLES: " + NUM_TURTLE + " (use arrows to select)", CTX_WIDTH/2, CTX_HEIGHT/2 + 60);
+
+		ctx.closePath();
+
+	}
+
+	prepareGame();
+
+
+</script>
+</body>
+</html>
